@@ -1,0 +1,73 @@
+#Set Up:
+# Import libraries
+from google.colab import drive
+import os
+import json
+import pandas as pd
+import string
+import numpy as np
+import random
+import networkx as nx
+# Mount drive
+drive.mount('/content/drive', force_remount=True)
+# Set assignment folder path
+lab_folder = '/content/drive/MyDrive/Courses/INST414/Week 3'
+os.chdir(lab_folder)
+# Load twitter dataset into a pandas DataFrame
+twitter_columns = [
+    'id', 'screenName', 'tags', 'avatar', 'followersCount',
+    'friendsCount', 'lang', 'lastSeen', 'tweetId', 'friends'
+]
+df = pd.read_csv('Twitter_data.csv', names=twitter_columns, on_bad_lines='skip',low_memory=False)
+pd.set_option('display.max_columns', None)
+# Preview dataset
+display(df.head(30))
+
+# Clean the data. Keep only rows that have a screenName and tags, then reset the index
+df = df.dropna(subset=['screenName', 'tags']).reset_index(drop=True)
+
+# Ensure all tags are treated as strings
+df['tags'] = df['tags'].astype(str)
+
+# Exploratory Analysis:
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import euclidean_distances
+
+# Vectorize the tags
+print("Vectorizing tags")
+vectorizer = CountVectorizer()
+tag_matrix = vectorizer.fit_transform(df['tags'])
+
+# Locate Barack Obama in the dataset
+query_handle = 'BarackObama'
+
+# Check if Obama exists in the cleaned dataframe
+if query_handle not in df['screenName'].values:
+    print(f"Error: Could not find '{query_handle}' in the dataset.")
+else:
+    print(f"Calculate Euclidean distance from {query_handle} to all other users")
+
+    # Get the exact row index for Barack Obama
+    obama_index = df.index[df['screenName'] == query_handle][0]
+
+    # Extract Obama's specific tag vector (his row of 0s and 1s)
+    obama_vector = tag_matrix[obama_index]
+
+    # Compute Euclidean Distances
+    # This compares Obama's vector against the entire tag_matrix
+    # [0] flattens the result into a simple 1D list of distances
+    distances = euclidean_distances(obama_vector, tag_matrix)[0]
+
+    # Add these distances as a new column in our dataframe
+    df['Distance_to_Obama'] = distances
+
+    # Sort and display the Top 10 most similar users
+    # Sort by the shortest distance (closest to 0.0 is the most similar)
+    # We use .iloc[1:11] to skip the first result, because the distance from Obama to Obama is 0.0
+    top_10 = df.sort_values(by='Distance_to_Obama').iloc[1:11]
+
+    print(f"\n--- Top 10 Users Most Similar to @{query_handle} (Based on Hashtags) ---")
+
+    # Select just the columns we want to see to keep the output clean
+    results = top_10[['screenName', 'tags', 'Distance_to_Obama']]
+    print(results.to_string(index=False))
