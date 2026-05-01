@@ -1,0 +1,142 @@
+#Set Up:
+# Import libraries
+from google.colab import drive
+import os
+import json
+import pandas as pd
+import string
+import numpy as np
+import random
+import networkx as nx
+# Mount drive
+drive.mount('/content/drive', force_remount=True)
+# Set assignment folder path
+lab_folder = '/content/drive/MyDrive/Courses/INST414/Week 3'
+os.chdir(lab_folder)
+# Load twitter dataset into a pandas DataFrame
+
+df = pd.read_csv('twitter-posts.csv', lineterminator='\n', encoding='utf-8', low_memory=False)
+# Assuming tab-separated values, and header=None implicitly due to names argument
+pd.set_option('display.max_columns', None)
+
+# Preview dataset
+display(df.head(10))
+display(df.info())
+display(len(df))
+# Drop name column to prevent .agg errors when it scans all columns: causes name attribute error
+df = df.drop(columns=['name'])
+# Condense dataset by likes, comments, views, quotes, bookmarks, replies, reposts, and followers
+df = df[['user_posted', 'likes','views','quotes',
+    'bookmarks', 'replies', 'reposts', 'followers']]
+display(df)
+# Similarity Analysis:
+# Aggregate data by user since a user can have multiple posts.
+# Take the max followers and sum the engagement metrics.
+agg_df = df.groupby('user_posted').agg({
+    'followers': 'max',
+    'replies': 'sum',
+    'reposts': 'sum',
+    'likes': 'sum',
+    'views': 'sum',
+    'quotes': 'sum',
+    'bookmarks': 'sum'
+}).reset_index()
+# Determine the accounts with the highest following. These are deemed influencers.
+influencers = agg_df.sort_values(by='followers', ascending=False).reset_index(drop=True)
+influencers.index += 1
+display(influencers.head(10))
+# Normalize Engagement Rates
+# Compare "likes per follower" and so forth so that big accounts do not take over by size
+metrics = ['replies', 'reposts', 'likes', 'views', 'quotes', 'bookmarks']
+for m in metrics:
+    agg_df[f'{m}_rate'] = agg_df[m] / agg_df['followers'].clip(lower=1)
+
+rate_cols = [f'{m}_rate' for m in metrics]
+display(agg_df.head())
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Find which regular users are most similar to hootsuite
+
+# Isolate the hootsuite profile and the regular users
+hootsuite_df = agg_df[agg_df['user_posted'] == 'hootsuite']
+
+# Define regular accounts: they will be accounts with less than 10,000 followers
+regulars = agg_df[agg_df['followers'] < 10000]
+
+# Scale the features to balance them among large ones such as likes and views: fits all 6 metrics at once
+combined_df = pd.concat([hootsuite_df, regulars])
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(combined_df[rate_cols])
+scaled_df = pd.DataFrame(scaled_data, columns=rate_cols, index=combined_df['user_posted'])
+
+# Extract the individual vectors
+hootsuite_vector = scaled_df.loc[['hootsuite']]
+regular_vectors = scaled_df.loc[regulars['user_posted']]
+
+# Calculate Cosine Similarity across all 6 dimensions (metrics)
+sim_scores = cosine_similarity(regular_vectors, hootsuite_vector)
+regulars['hootsuite_similarity'] = sim_scores.flatten()
+
+# Sort and get the top 10
+top_10_hootsuite = regulars.sort_values(by='hootsuite_similarity', ascending=False).head(10).reset_index(drop=True)
+
+# Display metrics and similarity score of top 10 regular users
+display_cols = ['user_posted', 'followers', 'replies', 'reposts', 'likes', 'views', 'quotes', 'bookmarks', 'hootsuite_similarity']
+print("Top 10 Regular Users Most Similar to hootsuite -- Based on Twitter Engagement")
+top_10_hootsuite.index += 1
+display(top_10_hootsuite[display_cols])
+# Find which regular users are most similar to lexfridman
+
+# Isolate the hootsuite profile and the regular users
+lexfridman_df = agg_df[agg_df['user_posted'] == 'lexfridman']
+
+# Scale the features to balance them among large ones such as likes and views: fits all 6 metrics at once
+combined_df = pd.concat([lexfridman_df, regulars])
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(combined_df[rate_cols])
+scaled_df = pd.DataFrame(scaled_data, columns=rate_cols, index=combined_df['user_posted'])
+
+# Extract the individual vectors
+lexfridman_vector = scaled_df.loc[['lexfridman']]
+regular_vectors = scaled_df.loc[regulars['user_posted']]
+
+# Calculate Cosine Similarity across all 6 dimensions (metrics)
+sim_scores = cosine_similarity(regular_vectors, lexfridman_vector)
+regulars['lexfridman_similarity'] = sim_scores.flatten()
+
+# Sort and get the top 10
+top_10_lexfridman = regulars.sort_values(by='lexfridman_similarity', ascending=False).head(10).reset_index(drop=True)
+
+# Display metrics and similarity score of top 10 regular users
+display_cols = ['user_posted', 'followers', 'replies', 'reposts', 'likes', 'views', 'quotes', 'bookmarks', 'lexfridman_similarity']
+print("Top 10 Regular Users Most Similar to lexfridman -- Based on Twitter Engagement")
+top_10_lexfridman.index += 1
+display(top_10_lexfridman[display_cols])
+# Find which regular users are most similar to zeitonline
+
+# Isolate the hootsuite profile and the regular users
+zeitonline_df = agg_df[agg_df['user_posted'] == 'zeitonline']
+
+# Scale the features to balance them among large ones such as likes and views: fits all 6 metrics at once
+combined_df = pd.concat([zeitonline_df, regulars])
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(combined_df[rate_cols])
+scaled_df = pd.DataFrame(scaled_data, columns=rate_cols, index=combined_df['user_posted'])
+
+# Extract the individual vectors
+zeitonline_vector = scaled_df.loc[['zeitonline']]
+regular_vectors = scaled_df.loc[regulars['user_posted']]
+
+# Calculate Cosine Similarity across all 6 dimensions (metrics)
+sim_scores = cosine_similarity(regular_vectors, zeitonline_vector)
+regulars['zeitonline_similarity'] = sim_scores.flatten()
+
+# Sort and get the top 10
+top_10_zeitonline = regulars.sort_values(by='zeitonline_similarity', ascending=False).head(10).reset_index(drop=True)
+
+# Display metrics and similarity score of top 10 regular users
+display_cols = ['user_posted', 'followers', 'replies', 'reposts', 'likes', 'views', 'quotes', 'bookmarks', 'zeitonline_similarity']
+print("Top 10 Regular Users Most Similar to zeitonline -- Based on Twitter Engagement")
+top_10_zeitonline.index += 1
+display(top_10_zeitonline[display_cols])
